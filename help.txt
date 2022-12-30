@@ -1,0 +1,376 @@
+These are some steps for authorization or for securing the users passwords from hackers :
+
+level 1:
+Registering users with their username and password , but here we will use findOne() function in /login with
+/register to see if they have a match but the password will be stored in simple string in our database which 
+is very bad and can be easily hacked.
+
+const userSchema = new mongoose.Schema({
+    email:String,
+    password:String
+});
+
+const User = new mongoose.model("User" , userSchema);
+
+app.post("/register" , function(req , res){
+    const newUser = new User({
+        email: req.body.username,
+        password: req.body.password
+    });
+    
+   newUser.save(function(err){
+    if(err)
+    {
+        res.send(err);
+    }else
+    {
+        res.send("secrets");
+    }
+   });
+
+});
+
+app.post("/login" , function(req , res){
+    const username = req.body.username;
+    const password = req.body.password;
+
+    User.findOne({email: username} , function(err , foundUser){
+        if(err)
+        {
+            res.send(err);
+        }else
+        {
+            if(foundUser.password === password)
+            {
+                res.render("secrets");
+            }
+            
+        }
+    });
+});
+
+
+
+**********************************************************
+LEVEL 2:
+Storing the password in encryption form which makes a little 
+bit difficult for hackers to see the password
+
+This npm package called mongoose-encryption can be used to 
+encrypt our confidential data.
+
+coding lines required for this package
+
+const encrypt = require("mongoose-encryption");
+
+instead of this javascript object
+const userSchema = {
+    email: String,
+    password: String
+};
+
+change to become mongoose object
+const userSchema = new mongoose.Schema({
+    email:String,
+    password:String
+});
+
+and after that for example.
+
+const secret = "Thisisourlittlesecret";
+userSchema.plugin(encrypt, {secret: secret , encryptedFields:["password"]});
+
+by these coding lines your password will be stored in 
+encryption form in our respective databases.
+
+**********************************************************
+LEVEL 3:
+In this level, the level 2 encrypted password or any kind
+of data can be easily decrypted by any motivated hacker so
+to make it more secure we will use environment variable.
+
+This npm package is called dotenv which will load .env file 
+into process.env
+
+There is no use of const and require but simply put
+require("dotenv").config();
+
+To start these level 3 process ,
+kindly download dotenv package
+->npm i dotenv
+
+after that make a single file named .env
+and insert 
+SECRET=Thisisourlittlesecret.
+
+instead of 
+userSchema.plugin(encrypt, {secret: secret , encryptedFields:["password"]});
+
+use this 
+userSchema.plugin(encrypt, {secret: process.env.SECRET , encryptedFields:["password"]});
+
+so this .env file will contain our very important confidential
+data which should not be uploaded to github due to which we
+will make .gitignore file to ignore .env file from uploading
+make .gitignore file and search github .ignore templates
+in which you will find node .gitignore file then you can 
+copy all and paste it into .gitignore file which will help
+files to be not uploaded.
+
+Now after saving .gitignore file , then you can push whole 
+folder to github and there you will see no .env file will be
+present.
+
+At time of web application deployment , be it heroku or cycle 
+anything but there will config vars dashboard to insert 
+environment variable.
+
+hashing is someform of encryption which can't be decrypted
+and no hacker can decrypt back to hashing.
+
+For this we need a npm package called md5 which is used to 
+encrypt the password or any data to hash code.
+
+To use md5 ,
+kindly download through it using npm
+npm i md5
+
+const md5 = require("md5");
+console.log(md5(req.body.password));
+
+so in our app.jshint
+we will convert those password in /register post section 
+into md5 and same will be done in /login into post section.
+
+one drawback of md5 hash is it produces same hash for same
+password , so hacker can gather all hash table for all users
+and can get similar hashes, and can gather most used password
+hash table to compare both the tables which will help them
+find the real password.
+
+With some latest GPU or graphic card you can calculate 
+20,000,000,000 MD5 hashes / second
+
+
+hashes are matched to only those password which are very
+short are mostly made up of dictionary words and numbers or
+famous places. But hashes for passwords like Ghs34kjkdf%#123
+is very difficult to find.
+
+
+**********************************************************
+LEVEL 4:
+Making level 3 to another level we use password + salt to 
+make a hash , just like hash we has salt which is everytime 
+different for same password.
+
+But with latest GPU or graphic card , it is very easy even 
+after applying salt to hash , so what else we can do
+
+we can use bcrypt which can make the tast much more hard 
+the latest gpu can only find 17,000 hashes / second.
+
+And to make it more difficult we can use salt rounds
+Salt rounds means number of salt round added 
+for doing this salt and salt rounds we need to install a 
+npm package called bcrypt , kindly download it by 
+npm i bcrypt
+
+some coding line are
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
+
+Note: To download bcrypt , it runs on some specified version
+of node due to which you should degrade your node version by 
+another package called nvm . nvm "node version number".
+
+the number of more saltRounds the harder/ more time taking 
+it becomes whether it is your computer or hackers computer.
+
+bcrypt.hash(req.body.password , saltRounds , function(err,hash){
+
+});
+
+**********************************************************
+LEVEL 5:
+use of cookied and sessions we will use different npm
+packages to use them.
+
+we will download some packages which are:
+npm i passport passport-local passport-local-mongoose 
+express-session
+
+const session = require("express-session);
+const passport = require("passport");
+const passportLocalMongoose = require("passport-local-mongoose);
+
+app.use(session({
+    secret: "Our Little Secret.",
+    resave: false,
+    saveUninitialized: false
+}));
+
+passport.use(User.createStrategy());
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
+
+app.post("/register" , function(req , res){
+    User.register({username: req.body.username} , req.body.password , function(err , user){
+        if(err)
+        {
+            console.log(err);
+            res.redirect("/register");
+        }else
+        {
+            passport.authenticate("local")(req , res , function(){
+                res.redirect("/secrets");
+            });
+        }
+    });
+});
+
+app.post("/login" , function(req , res){
+    const user = new User({
+        username: req.body.username,
+        password: req.body.password
+    });
+
+    req.login(user , function(err){
+        if(err)
+        {
+            console.log(err);
+        }else
+        {
+            passport.authenticate("local")(req , res ,function(){
+                res.redirect("/secrets");
+            });
+        }
+    });
+});
+
+**********************************************************
+LEVEL 6: Third Party OAuth open standard for token based authorization
+
+For authentication we need a special npm package called passport , it
+is a popular, modular authentication middleware for node.js application
+The passport has more then 500 authentication mechanism which includes
+OAuth , JWT and simple username and password authentication.
+
+Go to strategies of passportjs.com where you will find two google OAuth
+one is old version and second is version is google OAuth20. Use the 
+new one .
+
+- npm i passport-google-oauth20
+
+inside that usage paragraph there is a link given to google developers
+console , kindly go there and create a new project
+
+give project name and start by entering into new project ,
+kindly click on OAuth consent screen where you will get two options
+which are internal or external , click on external and tap create.
+Then you can fill the application name , user's email and logo if 
+possible. Then click save and continue , after it you will hover on 
+scope page where you are not suggest to change anything kindly save 
+and continue, after in testing page do same save and continue without
+any change , after it you can see all information of summary page.
+
+
+After completing it , go to credentials and create new credentials of 
+OAuth client Id , insert web application type and insert your first
+url of javascript which will be http://localhost:3000 and for 
+authorized redirect URIs insert http://localhost:3000/auth/google/trial
+After clicking done or submit , your OAuth client will be created
+which will give you your CLIENT_ID and CLIENT_SECRET.
+
+after getting these confidential keys kindly add it to .env file
+then require the passport in our app.js
+
+-const GoogleStrategy = require("passport-google-oauth20").strategy;
+
+Now copy paste that configure code which is given in the documentation
+of passport which goes like:
+
+passport.use(new GoogleStrategy({
+    clientID: process.env.CLIENT_ID,
+    clientSecret: process.env.CLIENT_SECRET,
+    callbackURL: "http://localhost:3000/auth/google/trial",
+    userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    User.findOrCreate({ googleId: profile.id }, function (err, user) {
+      return cb(err, user);
+    });
+  }
+));
+
+In this , there is a slight changes which is add
+userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
+below callbackURL.
+
+But there is a problem here , see above line containing
+findOrCreate function is not a real function it is a 
+pseudo - code given by passport package which they mean
+is whether to find or create , so to make it work we have
+to download another type of npm package called findOrCreate
+ 
+ - npm i mongoose-findorcreate 
+
+ then after installing it require it in app.js
+ const findOrCreate = require("mongoose-findorcreate");
+
+ and addition to this we have to add one more thing which
+ is plugin 
+ 
+ userSchema.plugin(findOrCreate);
+
+ Then authenticate by copying the code from documentation
+and comment out the code which is present in login and 
+register pages , you can get these code from bootstrap
+and refer it to href="/auth/google".
+
+app.get('/auth/google/trial', 
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  function(req, res) {
+    // Successful authentication, redirect home.
+    res.redirect('/secrets');
+  });
+
+  after it you will got another another which will
+  be of serialize and deserialize , then kindly paste
+  the below code and cut the before serialize code present
+  in app.js
+
+  passport.serializeUser(function(user, cb) {
+  process.nextTick(function() {
+    return cb(null, {
+      id: user.id,
+      username: user.username,
+      picture: user.picture
+    });
+  });
+});
+
+passport.deserializeUser(function(user, cb) {
+  process.nextTick(function() {
+    return cb(null, user);
+  });
+});
+
+Then everything will work fine but the data will be saved 
+in your database as objectId which will be simply numbers
+so to make to correct kindly add one more datatype in 
+userSchema object which is googleId: String.
+
+
+If you want to add more css to that google button kindly
+search "social button for bootstrap" and download the 
+code 
+
+after installing it unzip and place it in css folder and 
+add it through link href in header.ejs file
+
+Now go to register.ejs where you will find btn-block 
+kindly add btn-social btn-google to it and see magic!
+
+and to add the button for facebook
+write btn-social btn-facebook
